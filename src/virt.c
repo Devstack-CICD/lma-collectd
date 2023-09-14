@@ -2005,6 +2005,42 @@ static int get_fs_info(virDomainPtr domain) {
     virDomainFSInfoFree(fs_info[i]);
   }
 
+  // MORE INFO STUFF
+  int nparams = 0;
+  virTypedParameterPtr params = NULL;
+  ret = virDomainGetGuestInfo(domain, VIR_DOMAIN_GUEST_INFO_FILESYSTEM, &params, &nparams, 0);
+
+  for (int j = 0; j < mount_points_cnt; ++j) {
+    char mountpoint_str[BUFFER_MAX_LEN];
+    char total_bytes_str[BUFFER_MAX_LEN];
+    char used_bytes_str[BUFFER_MAX_LEN];
+
+    char * mountpoint = NULL;
+    unsigned long long total_bytes = 0;
+    unsigned long long used_bytes = 0;
+
+    sprintf(mountpoint_str, "fs.%d.mountpoint", j);
+    sprintf(total_bytes_str, "fs.%d.total-bytes", j);
+    sprintf(used_bytes_str, "fs.%d.used-bytes", j);
+
+    for (int i = 0; i < nparams; ++i) {
+        if (!strcmp(params[i].field, mountpoint_str))
+            mountpoint = params[i].value.s;
+        else if (!strcmp(params[i].field, total_bytes_str))
+            total_bytes = params[i].value.ul;
+        else if (!strcmp(params[i].field, used_bytes_str))
+            used_bytes = params[i].value.ul;
+    }
+
+    submit(domain, "fs_total_bytes", mountpoint, &(value_t){.gauge = total_bytes}, 1);
+    submit(domain, "fs_used_bytes", mountpoint, &(value_t){.gauge = used_bytes}, 1);
+  }
+
+  virTypedParamsFree(params, nparams);
+
+  sfree(params);
+  //END MORE INFO STUFF
+
   sfree(fs_info);
   return ret;
 }
